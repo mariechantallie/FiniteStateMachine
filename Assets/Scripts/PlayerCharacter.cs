@@ -1,29 +1,59 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using UnityEditor;
 using UnityEngine;
 
+[RequireComponent(typeof(Rigidbody))]
 public class PlayerCharacter : MonoBehaviour {
+    private const float FallingVelocityTrigger = -1f;
+
     [SerializeField] LayerMask jumpableLayers;
-    Jumping jumpState = new Jumping();
-    Grounded grounded = new Grounded();
-    Falling falling = new Falling();
+    [SerializeField] float jumpForce = 50f;
+    [SerializeField] KeyCode jumpKey = KeyCode.Space;
 
+    [field: SerializeField]
     public StateMachine CharacterState { get; private set; } = new StateMachine();
+    [field: SerializeField]
+    public IMonoState JumpState { get; private set; } = new JumpingState("Jumping");
+    [field: SerializeField]
+    public IMonoState GroundedState { get; private set; } = new GroundedState("Grounded");
+    [field: SerializeField]
+    public IMonoState FallingState { get; private set; } = new FallingState("Falling");
 
-    public bool IsGrounded => CharacterState.Current == grounded;
+    Rigidbody characterRigidbody;
+
+    public bool IsGrounded => (CharacterState.CurrentState is GroundedState);
 
     private void Start() {
-        CharacterState.Add(jumpState);
-        CharacterState.Add(grounded);
-        CharacterState.Add(falling);
+        characterRigidbody = GetComponent<Rigidbody>();
+        JumpState.OnEnter += Jump;
+        CharacterState.AddState(GroundedState);
+        CharacterState.AddState(JumpState);
+        CharacterState.AddState(FallingState);
     }
 
-    private void OnCollisionEnter(Collision collision) {
-        if(jumpableLayers == (jumpableLayers | (1 << collision.gameObject.layer))) {
-            CharacterState.ChangeState(grounded);
+    private void Update() {
+        MonitorFalling();
+        if(IsGrounded) { CharacterState.ChangeState(GroundedState); }
+        if(Input.GetKeyDown(jumpKey) && IsGrounded) {
+            CharacterState.ChangeState(JumpState);
         }
+    }
+
+    private void MonitorFalling() {
+        if(IsFalling) {
+            CharacterState.ChangeState(FallingState);
+        }
+    }
+
+    private bool IsFalling => characterRigidbody.velocity.y < FallingVelocityTrigger;
+
+    private void OnCollisionEnter(Collision collision) {
+        if(jumpableLayers.Contains(collision.gameObject.layer)) {
+            CharacterState.ChangeState(GroundedState);
+        }
+    }
+
+    private void Jump() {
+        characterRigidbody.AddForce(jumpForce * Vector3.up);
     }
 }

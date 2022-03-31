@@ -1,14 +1,15 @@
 using System;
 
 public abstract class State : IState {
+    public string Name { get; private set; }
+
     public event Action OnEnter;
     public event Action OnExit;
 
-    public virtual void Enter() {
-        OnEnter?.Invoke();
+    public State(string name) {
+        Name = name;
     }
 
-    public virtual void Exit() {
-        OnExit?.Invoke();
-    }
+    public void Enter() => OnEnter?.Invoke();
+    public void Exit() => OnExit?.Invoke();
 }
